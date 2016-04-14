@@ -10,11 +10,18 @@ import (
 	"strings"
 )
 
+var DefaultManager, _ = NewManager()
+
+func Add(root string) error                            { return DefaultManager.Add(root) }
+func ServeHTTP(w http.ResponseWriter, r *http.Request) { DefaultManager.ServeHTTP(w, r) }
+func AssetsPath(p string) string                       { return DefaultManager.AssetsPath(p) }
+
 type Manager struct {
 	pathsMap    map[string]string
 	fpPathsMap  map[string]string
 	URLPrefix   string
 	Fingerprint bool
+	Hostname    string
 
 	// TODO: Matcher func
 	// TODO: Only []string
@@ -34,6 +41,7 @@ func NewManager(paths ...string) (*Manager, error) {
 	return &m, nil
 }
 
+// Add includes path in Manager serving scope. It also copys and fingerprints assets into a subdirectory named "assetstube". Everytime it's called it reset the subdirectory and restar
 func (m *Manager) Add(root string) error {
 	root = filepath.Clean(root)
 	cacheDir := filepath.Join(root, "assetstube")
@@ -86,6 +94,7 @@ func (m *Manager) Add(root string) error {
 				return err
 			}
 		} else {
+			// no fingerprint for files without extention. odd behaviour?
 			m.pathsMap[name] = name
 			m.fpPathsMap[name] = filepath.Join(cacheDir, name)
 		}
@@ -116,4 +125,9 @@ func (m *Manager) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	http.ServeFile(w, r, m.fpPathsMap[path])
 }
 
-func (m *Manager) AssetsPath(p string) string { return m.pathsMap[p] }
+func (m *Manager) AssetsPath(p string) string {
+	if m.Hostname != "" {
+		return fmt.Sprintf("%s/%s", m.Hostname, m.pathsMap[p])
+	}
+	return m.pathsMap[p]
+}
