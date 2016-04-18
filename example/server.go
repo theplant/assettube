@@ -2,19 +2,20 @@ package main
 
 import (
 	"html/template"
+	"net/http"
 	"os"
 
-	"github.com/theplant/assetstube"
+	"github.com/theplant/assettube"
 )
 
 func init() {
-	assetstube.Add("assets")
+	assettube.Add("assets")
 }
 
 func main() {
 	var tmpl = template.New("")
 	tmpl.Funcs(template.FuncMap{
-		"assets": assetstube.AssetsPath,
+		"assets": assettube.AssetsPath,
 	})
 	tmpl.Parse(`<!DOCTYPE html>
 <html>
@@ -29,4 +30,6 @@ func main() {
 </html>`)
 
 	tmpl.Execute(os.Stdout, nil)
+
+	http.HandleFunc("/assets", assettube.ServeHTTP)
 }

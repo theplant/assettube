@@ -1,4 +1,4 @@
-package assetstube
+package assettube
 
 import (
 	"crypto/md5"
@@ -41,10 +41,10 @@ func NewManager(paths ...string) (*Manager, error) {
 	return &m, nil
 }
 
-// Add includes path in Manager serving scope. It also copys and fingerprints assets into a subdirectory named "assetstube". Everytime it's called it reset the subdirectory and restar
+// Add includes path in Manager serving scope. It also copys and fingerprints assets into a subdirectory named "assettube". Everytime it's called it reset the subdirectory and restar
 func (m *Manager) Add(root string) error {
 	root = filepath.Clean(root)
-	cacheDir := filepath.Join(root, "assetstube")
+	cacheDir := filepath.Join(root, "assettube")
 	if _, err := os.Stat(cacheDir); err != nil {
 		if !os.IsNotExist(err) {
 			return err
@@ -66,7 +66,7 @@ func (m *Manager) Add(root string) error {
 		if info.IsDir() {
 			if name == "" {
 				return nil
-			} else if name == "assetstube" {
+			} else if name == "assettube" {
 				return filepath.SkipDir
 			}
 			if err := os.Mkdir(filepath.Join(cacheDir, name), info.Mode()); err != nil {

@@ -4,9 +4,9 @@ AssetTube is a tool fingerprints and serves asset files automatically, in runtim
 
 ## How it works
 
-AssetTube will copy your asset files into a subdirectory named `assetstube` and fingerprint it, in runtime. Every time the server is restarted, it will remove previously generated files.
+AssetTube will copy your asset files into a subdirectory named `assettube` and fingerprint it, in runtime. Every time the server is restarted, it will remove previously generated files.
 
-You could check out the [example](https://github.com/theplant/assetstube/tree/master/example) to have better idea of how it works.
+You could check out the [example](https://github.com/theplant/assettube/tree/master/example) to have better idea of how it works.
 
 ## Usage example
 
@@ -17,17 +17,17 @@ import (
 	"html/template"
 	"os"
 
-	"github.com/theplant/assetstube"
+	"github.com/theplant/assettube"
 )
 
 func init() {
-	assetstube.Add("assets")
+	assettube.Add("assets")
 }
 
 func main() {
 	var tmpl = template.New("")
 	tmpl.Funcs(template.FuncMap{
-		"assets": assetstube.AssetsPath,
+		"assets": assettube.AssetsPath,
 	})
 	tmpl.Parse(`<!DOCTYPE html>
 <html>

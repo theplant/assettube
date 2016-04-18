@@ -1,4 +1,4 @@
-package assetstube
+package assettube
 
 import (
 	"bytes"
@@ -12,7 +12,7 @@ import (
 
 func TestManager(t *testing.T) {
 	for _, path := range []string{
-		"/Users/bom_d_van/Code/go/workspace/src/github.com/theplant/assetstube/test",
+		"/Users/bom_d_van/Code/go/workspace/src/github.com/theplant/assettube/test",
 		"test",
 	} {
 		m, err := NewManager(path)
