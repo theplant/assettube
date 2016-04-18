@@ -1,6 +1,6 @@
 # AssetTube
 
-AssetTube is a tool fingerprints and serves asset files automatically, in runtime.
+AssetTube is a tool fingerprints and serves asset files automatically, in runtime. It's built to connect your webpack-processed assets to Go application.
 
 ## How it works
 

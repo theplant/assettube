@@ -14,13 +14,15 @@ var DefaultManager, _ = NewManager()
 
 func Add(root string) error                            { return DefaultManager.Add(root) }
 func ServeHTTP(w http.ResponseWriter, r *http.Request) { DefaultManager.ServeHTTP(w, r) }
-func AssetsPath(p string) string                       { return DefaultManager.AssetsPath(p) }
+func AssetPath(p string) string                        { return DefaultManager.AssetPath(p) }
+func UseFingerprint(use bool) error                    { return DefaultManager.UseFingerprint(use) }
 
 type Manager struct {
+	paths       []string
 	pathsMap    map[string]string
 	fpPathsMap  map[string]string
 	URLPrefix   string
-	Fingerprint bool
+	fingerprint bool
 	Hostname    string
 
 	// TODO: Matcher func
@@ -41,20 +43,39 @@ func NewManager(paths ...string) (*Manager, error) {
 	return &m, nil
 }
 
-// Add includes path in Manager serving scope. It also copys and fingerprints assets into a subdirectory named "assettube". Everytime it's called it reset the subdirectory and restar
-func (m *Manager) Add(root string) error {
-	root = filepath.Clean(root)
-	cacheDir := filepath.Join(root, "assettube")
-	if _, err := os.Stat(cacheDir); err != nil {
-		if !os.IsNotExist(err) {
+func (m *Manager) UseFingerprint(use bool) error {
+	nm, _ := NewManager()
+	nm.fingerprint = use
+	for _, p := range m.paths {
+		if err := nm.Add(p); err != nil {
 			return err
 		}
-	} else if err := os.RemoveAll(cacheDir); err != nil {
-		return err
 	}
 
-	if err := os.Mkdir(cacheDir, 0755); err != nil {
-		return err
+	*m = *nm
+	return nil
+}
+
+// Add includes path in Manager serving scope. It also copys and fingerprints
+// assets into a subdirectory named "assettube". Everytime it's called it
+// reset the subdirectory and restar
+func (m *Manager) Add(root string) error {
+	m.paths = append(m.paths, root)
+
+	root = filepath.Clean(root)
+	cacheDir := root
+	if m.fingerprint {
+		cacheDir = filepath.Join(root, "assettube")
+		if _, err := os.Stat(cacheDir); err != nil {
+			if !os.IsNotExist(err) {
+				return err
+			}
+		} else if err := os.RemoveAll(cacheDir); err != nil {
+			return err
+		}
+		if err := os.Mkdir(cacheDir, 0755); err != nil {
+			return err
+		}
 	}
 
 	if err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
@@ -69,6 +90,11 @@ func (m *Manager) Add(root string) error {
 			} else if name == "assettube" {
 				return filepath.SkipDir
 			}
+
+			if !m.fingerprint {
+				return nil
+			}
+
 			if err := os.Mkdir(filepath.Join(cacheDir, name), info.Mode()); err != nil {
 				return err
 			}
@@ -80,6 +106,12 @@ func (m *Manager) Add(root string) error {
 			return err
 		}
 		defer src.Close()
+
+		if !m.fingerprint {
+			m.pathsMap[name] = name
+			m.fpPathsMap[name] = filepath.Join(cacheDir, name)
+			return nil
+		}
 
 		if ext := filepath.Ext(path); ext != "" {
 			hash := md5.New()
@@ -119,15 +151,16 @@ func (m *Manager) Add(root string) error {
 func (m *Manager) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	path := strings.TrimPrefix(r.URL.Path, m.URLPrefix)
 	path = strings.TrimPrefix(path, "/")
-	// if m.Fingerprint {
-	// 	return
-	// }
+	path = strings.TrimPrefix(path, "assettube/")
 	http.ServeFile(w, r, m.fpPathsMap[path])
 }
 
-func (m *Manager) AssetsPath(p string) string {
+func (m *Manager) AssetPath(p string) string {
 	if m.Hostname != "" {
 		return fmt.Sprintf("%s/%s", m.Hostname, m.pathsMap[p])
 	}
-	return m.pathsMap[p]
+	if !m.fingerprint {
+		return p
+	}
+	return fmt.Sprintf("assettube/%s", m.pathsMap[p])
 }
