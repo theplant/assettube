@@ -50,12 +50,8 @@ func TestManager(t *testing.T) {
 	} {
 		t.Logf("case %d", c.cname)
 
-		m, err := NewManager(c.path)
+		m, err := NewManager(Config{Fingerprint: c.fingerprint}, c.path)
 		if err != nil {
-			t.Fatal(err)
-		}
-		// m.URLPrefix = "/assets"
-		if err := m.SetFingerprint(c.fingerprint); err != nil {
 			t.Fatal(err)
 		}
 
@@ -80,8 +76,7 @@ func TestManager(t *testing.T) {
 }
 
 func TestHostname(t *testing.T) {
-	m, _ := NewManager("test")
-	m.SetHostname("https://cdn.com")
+	m, _ := NewManager(Config{Hostname: "https://cdn.com"}, "test")
 	if got, want := m.AssetPath("js/file.js"), "https://cdn.com/js/file.js"; got != want {
 		t.Errorf("m.AssetPath(js/file.js) = %s; want %s", got, want)
 	}

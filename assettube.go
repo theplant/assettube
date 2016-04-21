@@ -2,7 +2,11 @@ package assettube
 
 import (
 	"crypto/md5"
+	"crypto/sha256"
+	"crypto/sha512"
+	"encoding/base64"
 	"fmt"
+	"hash"
 	"io"
 	"net/http"
 	"os"
@@ -10,14 +14,13 @@ import (
 	"strings"
 )
 
-var DefaultManager, _ = NewManager()
+var DefaultManager, _ = NewManager(Config{})
 
 func Add(root string) error                            { return DefaultManager.Add(root) }
 func ServeHTTP(w http.ResponseWriter, r *http.Request) { DefaultManager.ServeHTTP(w, r) }
 func AssetPath(p string) string                        { return DefaultManager.AssetPath(p) }
-func SetFingerprint(use bool) error                    { return DefaultManager.SetFingerprint(use) }
-func SetURLPrefix(prefix string)                       { DefaultManager.SetURLPrefix(prefix) }
-func SetHostname(name string)                          { DefaultManager.SetHostname(name) }
+func Integrity(p string) string                        { return DefaultManager.Integrity(p) }
+func SetConfig(cfg Config) error                       { return DefaultManager.SetConfig(cfg) }
 
 type Manager struct {
 	paths       []string
@@ -28,16 +31,75 @@ type Manager struct {
 	urlPrefix string
 	hostname  string
 
+	hash           HashType
+	integrity      bool
+	integritiesMap map[string]string
+
 	Matcher func(path string, info os.FileInfo) bool
-	// TODO: Only []string
-	// TODO: Skip []string
 }
 
-func NewManager(paths ...string) (*Manager, error) {
+type Config struct {
+	Fingerprint bool
+	URLPrefix   string
+	Hostname    string
+	Matcher     func(path string, info os.FileInfo) bool
+
+	SubresourceIntegrity bool
+	HashType             HashType
+}
+
+type HashType int
+
+const (
+	HTMD5 HashType = iota
+	HTSHA256
+	HTSHA384
+	HTSHA512
+)
+
+func (h HashType) Hash() hash.Hash {
+	switch h {
+	case HTSHA256:
+		return sha256.New()
+	case HTSHA384:
+		return sha512.New384()
+	case HTSHA512:
+		return sha512.New()
+	}
+	return md5.New()
+}
+
+func (h HashType) String() string {
+	switch h {
+	case HTSHA256:
+		return "sha256"
+	case HTSHA384:
+		return "sha384"
+	case HTSHA512:
+		return "sha512"
+	}
+	return "md5"
+}
+
+func NewManager(cfg Config, paths ...string) (*Manager, error) {
 	var m Manager
 	m.pathsMap = map[string]string{}
 	m.fpPathsMap = map[string]string{}
-	m.Matcher = defaultMatcher
+	m.integritiesMap = map[string]string{}
+	m.fingerprint = cfg.Fingerprint
+	m.urlPrefix = cfg.URLPrefix
+	m.hostname = cfg.Hostname
+	m.integrity = cfg.SubresourceIntegrity
+	m.hash = cfg.HashType
+	if m.integrity && m.hash == HTMD5 {
+		m.hash = HTSHA384
+	}
+	if cfg.Matcher != nil {
+		m.Matcher = cfg.Matcher
+	} else {
+		m.Matcher = defaultMatcher
+	}
+
 	for _, p := range paths {
 		if err := m.Add(p); err != nil {
 			return nil, err
@@ -56,24 +118,33 @@ func defaultMatcher(path string, info os.FileInfo) bool {
 	return false
 }
 
-func (m *Manager) SetFingerprint(use bool) error {
-	nm, _ := NewManager()
-	nm.fingerprint = use
-	nm.urlPrefix = m.urlPrefix
-	nm.hostname = m.hostname
-	nm.Matcher = m.Matcher
-	for _, p := range m.paths {
-		if err := nm.Add(p); err != nil {
-			return err
-		}
+func (m *Manager) SetConfig(cfg Config) error {
+	nm, err := NewManager(cfg, m.paths...)
+	if err != nil {
+		return err
 	}
-
 	*m = *nm
 	return nil
 }
 
-func (m *Manager) SetURLPrefix(prefix string) { m.urlPrefix = strings.Trim(prefix, "/") }
-func (m *Manager) SetHostname(name string)    { m.SetHostname(name) }
+// func (m *Manager) SetFingerprint(use bool) error {
+// 	nm, _ := NewManager()
+// 	nm.fingerprint = use
+// 	nm.urlPrefix = m.urlPrefix
+// 	nm.hostname = m.hostname
+// 	nm.Matcher = m.Matcher
+// 	for _, p := range m.paths {
+// 		if err := nm.Add(p); err != nil {
+// 			return err
+// 		}
+// 	}
+
+// 	*m = *nm
+// 	return nil
+// }
+
+// func (m *Manager) SetURLPrefix(prefix string) { m.urlPrefix = strings.Trim(prefix, "/") }
+// func (m *Manager) SetHostname(name string)    { m.SetHostname(name) }
 
 // Add includes path in Manager serving scope. It also copys and fingerprints
 // assets into a subdirectory named "assettube". Everytime it's called it
@@ -142,12 +213,22 @@ func (m *Manager) Add(root string) error {
 		if _, err := io.Copy(hash, src); err != nil {
 			return err
 		}
+		if _, err := src.Seek(0, 0); err != nil {
+			return err
+		}
 		ext := filepath.Ext(path)
 		fpname := fmt.Sprintf("%s.%x%s", strings.TrimSuffix(name, ext), hash.Sum(nil), ext)
 		m.pathsMap[name] = fpname
 		m.fpPathsMap[fpname] = filepath.Join(cacheDir, fpname)
-		if _, err := src.Seek(0, 0); err != nil {
-			return err
+		if m.integrity {
+			hash := m.hash.Hash()
+			if _, err := io.Copy(hash, src); err != nil {
+				return err
+			}
+			if _, err := src.Seek(0, 0); err != nil {
+				return err
+			}
+			m.integritiesMap[name] = base64.RawStdEncoding.EncodeToString(hash.Sum(nil))
 		}
 
 		// copy file to assettube/
@@ -185,13 +266,17 @@ func (m *Manager) AssetPath(p string) string {
 	if m.urlPrefix != "" {
 		paths = append(paths, m.urlPrefix)
 	}
-	// if m.fingerprint {
-	// 	paths = append(paths, "assettube")
-	// }
 	paths = append(paths, m.pathsMap[p])
 
 	if m.hostname != "" {
 		return strings.Join(paths, "/")
 	}
 	return "/" + strings.Join(paths, "/")
+}
+
+func (m *Manager) Integrity(p string) string {
+	if m.integritiesMap[p] == "" {
+		return ""
+	}
+	return fmt.Sprintf("%s-%s", m.hash, m.integritiesMap[p])
 }
