@@ -9,20 +9,22 @@ import (
 )
 
 func init() {
+	assettube.SetFingerprint(true)
+	assettube.SetURLPrefix("/assets")
 	assettube.Add("assets")
 }
 
 func main() {
 	var tmpl = template.New("")
 	tmpl.Funcs(template.FuncMap{
-		"assets": assettube.AssetsPath,
+		"asset_path": assettube.AssetPath,
 	})
 	tmpl.Parse(`<!DOCTYPE html>
 <html>
 <head>
 	<title>Assetstube</title>
-	<link rel="stylesheet" type="text/css" href="{{assets "css/app.css"}}">
-	<script type="text/javascript" src="{{assets "js/app.js"}}"></script>
+	<link rel="stylesheet" type="text/css" href="{{asset_path "css/app.css"}}">
+	<script type="text/javascript" src="{{asset_path "js/app.js"}}"></script>
 </head>
 <body>
 
@@ -31,5 +33,6 @@ func main() {
 
 	tmpl.Execute(os.Stdout, nil)
 
-	http.HandleFunc("/assets", assettube.ServeHTTP)
+	http.HandleFunc("/assets/", assettube.ServeHTTP)
+	http.ListenAndServe(":8080", nil)
 }

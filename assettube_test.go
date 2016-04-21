@@ -22,30 +22,30 @@ func TestManager(t *testing.T) {
 			path:        "/Users/bom_d_van/Code/go/workspace/src/github.com/theplant/assettube/test",
 			fingerprint: true,
 			pathMap: [][2]string{
-				{"css/file.css", "assettube/css/file.0bc77612dba2d5253636e9f0b0d3e6cc.css"},
-				{"js/file.js", "assettube/js/file.bf5a6a7119046d97ee509d017080c6aa.js"},
+				{"css/file.css", "/css/file.0bc77612dba2d5253636e9f0b0d3e6cc.css"},
+				{"js/file.js", "/js/file.bf5a6a7119046d97ee509d017080c6aa.js"},
 			},
-			getURL: "http://example.com/assettube/js/file.bf5a6a7119046d97ee509d017080c6aa.js",
+			getURL: "http://example.com/js/file.bf5a6a7119046d97ee509d017080c6aa.js",
 		},
 		{
 			cname:       2,
 			path:        "test",
 			fingerprint: true,
 			pathMap: [][2]string{
-				{"css/file.css", "assettube/css/file.0bc77612dba2d5253636e9f0b0d3e6cc.css"},
-				{"js/file.js", "assettube/js/file.bf5a6a7119046d97ee509d017080c6aa.js"},
+				{"css/file.css", "/css/file.0bc77612dba2d5253636e9f0b0d3e6cc.css"},
+				{"js/file.js", "/js/file.bf5a6a7119046d97ee509d017080c6aa.js"},
 			},
-			getURL: "http://example.com/assettube/js/file.bf5a6a7119046d97ee509d017080c6aa.js",
+			getURL: "http://example.com/js/file.bf5a6a7119046d97ee509d017080c6aa.js",
 		},
 		{
 			cname:       3,
 			path:        "test",
 			fingerprint: false,
 			pathMap: [][2]string{
-				{"css/file.css", "css/file.css"},
-				{"js/file.js", "js/file.js"},
+				{"css/file.css", "/css/file.css"},
+				{"js/file.js", "/js/file.js"},
 			},
-			getURL: "http://example.com/assettube/js/file.js",
+			getURL: "http://example.com/js/file.js",
 		},
 	} {
 		t.Logf("case %d", c.cname)
@@ -55,7 +55,7 @@ func TestManager(t *testing.T) {
 			t.Fatal(err)
 		}
 		// m.URLPrefix = "/assets"
-		if err := m.UseFingerprint(c.fingerprint); err != nil {
+		if err := m.SetFingerprint(c.fingerprint); err != nil {
 			t.Fatal(err)
 		}
 
@@ -81,7 +81,7 @@ func TestManager(t *testing.T) {
 
 func TestHostname(t *testing.T) {
 	m, _ := NewManager("test")
-	m.Hostname = "https://cdn.com"
+	m.SetHostname("https://cdn.com")
 	if got, want := m.AssetPath("js/file.js"), "https://cdn.com/js/file.js"; got != want {
 		t.Errorf("m.AssetPath(js/file.js) = %s; want %s", got, want)
 	}

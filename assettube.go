@@ -15,17 +15,20 @@ var DefaultManager, _ = NewManager()
 func Add(root string) error                            { return DefaultManager.Add(root) }
 func ServeHTTP(w http.ResponseWriter, r *http.Request) { DefaultManager.ServeHTTP(w, r) }
 func AssetPath(p string) string                        { return DefaultManager.AssetPath(p) }
-func UseFingerprint(use bool) error                    { return DefaultManager.UseFingerprint(use) }
+func SetFingerprint(use bool) error                    { return DefaultManager.SetFingerprint(use) }
+func SetURLPrefix(prefix string)                       { DefaultManager.SetURLPrefix(prefix) }
+func SetHostname(name string)                          { DefaultManager.SetHostname(name) }
 
 type Manager struct {
 	paths       []string
 	pathsMap    map[string]string
 	fpPathsMap  map[string]string
-	URLPrefix   string
 	fingerprint bool
-	Hostname    string
 
-	// TODO: Matcher func
+	urlPrefix string
+	hostname  string
+
+	Matcher func(path string, info os.FileInfo) bool
 	// TODO: Only []string
 	// TODO: Skip []string
 }
@@ -34,6 +37,7 @@ func NewManager(paths ...string) (*Manager, error) {
 	var m Manager
 	m.pathsMap = map[string]string{}
 	m.fpPathsMap = map[string]string{}
+	m.Matcher = defaultMatcher
 	for _, p := range paths {
 		if err := m.Add(p); err != nil {
 			return nil, err
@@ -43,9 +47,21 @@ func NewManager(paths ...string) (*Manager, error) {
 	return &m, nil
 }
 
-func (m *Manager) UseFingerprint(use bool) error {
+func defaultMatcher(path string, info os.FileInfo) bool {
+	if matched := strings.HasSuffix(path, ".js"); matched {
+		return true
+	} else if matched := strings.HasSuffix(path, ".css"); matched {
+		return true
+	}
+	return false
+}
+
+func (m *Manager) SetFingerprint(use bool) error {
 	nm, _ := NewManager()
 	nm.fingerprint = use
+	nm.urlPrefix = m.urlPrefix
+	nm.hostname = m.hostname
+	nm.Matcher = m.Matcher
 	for _, p := range m.paths {
 		if err := nm.Add(p); err != nil {
 			return err
@@ -55,6 +71,9 @@ func (m *Manager) UseFingerprint(use bool) error {
 	*m = *nm
 	return nil
 }
+
+func (m *Manager) SetURLPrefix(prefix string) { m.urlPrefix = strings.Trim(prefix, "/") }
+func (m *Manager) SetHostname(name string)    { m.SetHostname(name) }
 
 // Add includes path in Manager serving scope. It also copys and fingerprints
 // assets into a subdirectory named "assettube". Everytime it's called it
@@ -107,30 +126,31 @@ func (m *Manager) Add(root string) error {
 		}
 		defer src.Close()
 
+		// skip fingerprinting for dev mode
 		if !m.fingerprint {
 			m.pathsMap[name] = name
 			m.fpPathsMap[name] = filepath.Join(cacheDir, name)
 			return nil
 		}
 
-		if ext := filepath.Ext(path); ext != "" {
-			hash := md5.New()
-			if _, err := io.Copy(hash, src); err != nil {
-				return err
-			}
-			fpname := fmt.Sprintf("%s.%x%s", strings.TrimSuffix(name, ext), hash.Sum(nil), ext)
-			m.pathsMap[name] = fpname
-			m.fpPathsMap[fpname] = filepath.Join(cacheDir, fpname)
-
-			if _, err := src.Seek(0, 0); err != nil {
-				return err
-			}
-		} else {
-			// no fingerprint for files without extention. odd behaviour?
-			m.pathsMap[name] = name
-			m.fpPathsMap[name] = filepath.Join(cacheDir, name)
+		if !m.Matcher(path, info) {
+			return nil
 		}
 
+		// generate fingerprinted filename
+		hash := md5.New()
+		if _, err := io.Copy(hash, src); err != nil {
+			return err
+		}
+		ext := filepath.Ext(path)
+		fpname := fmt.Sprintf("%s.%x%s", strings.TrimSuffix(name, ext), hash.Sum(nil), ext)
+		m.pathsMap[name] = fpname
+		m.fpPathsMap[fpname] = filepath.Join(cacheDir, fpname)
+		if _, err := src.Seek(0, 0); err != nil {
+			return err
+		}
+
+		// copy file to assettube/
 		dst, err := os.OpenFile(m.fpPathsMap[m.pathsMap[name]], os.O_WRONLY|os.O_TRUNC|os.O_CREATE, info.Mode())
 		if err != nil {
 			return err
@@ -149,18 +169,29 @@ func (m *Manager) Add(root string) error {
 }
 
 func (m *Manager) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	path := strings.TrimPrefix(r.URL.Path, m.URLPrefix)
+	path := r.URL.Path
+	if m.urlPrefix != "" {
+		path = strings.TrimPrefix(path, "/"+m.urlPrefix)
+	}
 	path = strings.TrimPrefix(path, "/")
-	path = strings.TrimPrefix(path, "assettube/")
 	http.ServeFile(w, r, m.fpPathsMap[path])
 }
 
 func (m *Manager) AssetPath(p string) string {
-	if m.Hostname != "" {
-		return fmt.Sprintf("%s/%s", m.Hostname, m.pathsMap[p])
+	paths := make([]string, 0, 3)
+	if m.hostname != "" {
+		paths = append(paths, m.hostname)
 	}
-	if !m.fingerprint {
-		return p
+	if m.urlPrefix != "" {
+		paths = append(paths, m.urlPrefix)
 	}
-	return fmt.Sprintf("assettube/%s", m.pathsMap[p])
+	// if m.fingerprint {
+	// 	paths = append(paths, "assettube")
+	// }
+	paths = append(paths, m.pathsMap[p])
+
+	if m.hostname != "" {
+		return strings.Join(paths, "/")
+	}
+	return "/" + strings.Join(paths, "/")
 }
