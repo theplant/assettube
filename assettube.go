@@ -73,13 +73,14 @@ type Config struct {
 
 	// Enable SubresourceIntegrity support and specify digest hash method by HashType.
 	SubresourceIntegrity bool
-	HashType             HashType // Default HashType is SHA-384.
+	HashType             HashType // Default HashType is HTSHA384(SHA-384).
 }
 
-// HashType is the hash
+// HashType represents the hash function used in Subresource Integrity.
 type HashType int
 
 const (
+	// Three hash digest types supported in SubresourceIntegrity.
 	HTSHA384 HashType = iota
 	HTSHA256
 	HTSHA512
