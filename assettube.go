@@ -1,3 +1,6 @@
+// package assettube fingerprints and servers your assets processed by
+// webpack/gulp/other-tools from your Go application.
+//
 package assettube
 
 import (
@@ -134,7 +137,8 @@ func (m *Manager) SetConfig(cfg Config) error {
 
 // Add includes path in Manager serving scope. It also copys and fingerprints
 // assets into a subdirectory named "assettube". Everytime it's called it
-// reset the subdirectory and restar
+// removes the subdirectory and create a new one, then copy all the matched
+// files into the new directory.
 func (m *Manager) Add(root string) error {
 	m.paths = append(m.paths, root)
 
