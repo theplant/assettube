@@ -38,6 +38,7 @@ func AssetPath(p string) string { return DefaultManager.AssetPath(p) }
 
 // Integrity returns the SRI hash of corresponding file.
 // You could specify which digest hash to use by Config.HashType.
+// https://developer.mozilla.org/en-US/docs/Web/Security/Subresource_Integrity
 func Integrity(p string) string { return DefaultManager.Integrity(p) }
 
 // SetConfig updates Manager configurations.
@@ -291,6 +292,7 @@ func (m *Manager) AssetPath(p string) string {
 
 // Integrity returns the SRI hash of corresponding file.
 // You could specify which digest hash to use by Config.HashType.
+// https://developer.mozilla.org/en-US/docs/Web/Security/Subresource_Integrity
 func (m *Manager) Integrity(p string) string {
 	if m.integritiesMap[p] == "" {
 		return ""
