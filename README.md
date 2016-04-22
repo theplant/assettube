@@ -1,5 +1,7 @@
 # AssetTube
 
+[![GoDoc](https://godoc.org/github.com/golang/gddo?status.svg)](http://godoc.org/github.com/theplant/assettube)
+
 AssetTube is a tool fingerprints and serves asset files automatically, in runtime. It's built to connect your webpack-processed assets to Go application.
 
 ## How it works
