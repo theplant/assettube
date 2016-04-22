@@ -15,32 +15,45 @@ package main
 
 import (
 	"html/template"
+	"net/http"
 	"os"
 
 	"github.com/theplant/assettube"
 )
 
 func init() {
+	assettube.SetConfig(assettube.Config{
+		Fingerprint:          true,
+		URLPrefix:            "assets",
+		SubresourceIntegrity: true,
+	})
 	assettube.Add("assets")
 }
 
 func main() {
 	var tmpl = template.New("")
 	tmpl.Funcs(template.FuncMap{
-		"assets": assettube.AssetsPath,
+		"asset_path": assettube.AssetPath,
+		"integrity":  assettube.Integrity,
 	})
 	tmpl.Parse(`<!DOCTYPE html>
 <html>
 <head>
-	<title>AssetTube</title>
-	<link rel="stylesheet" type="text/css" href="{{assets "css/app.css"}}">
-	<script type="text/javascript" src="{{assets "js/app.js"}}"></script>
+	<title>Assetstube</title>
+	<link rel="stylesheet" type="text/css" href="{{asset_path "css/app.css"}}">
+	<script type="text/javascript" src="{{asset_path "js/app.js"}}" integrity="{{integrity "js/app.js"}}"></script>
 </head>
 <body>
 
 </body>
-</html>`)
+</html>
+`)
 
 	tmpl.Execute(os.Stdout, nil)
+	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		tmpl.Execute(w, nil)
+	})
+	http.HandleFunc("/assets/", assettube.ServeHTTP) // Note the trailing "/", whihc is necessary
+	http.ListenAndServe(":8080", nil)
 }
 ```

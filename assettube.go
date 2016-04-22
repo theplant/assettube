@@ -44,6 +44,7 @@ type Config struct {
 	Hostname    string
 	Matcher     func(path string, info os.FileInfo) bool
 
+	// Enable SubresourceIntegrity support and specify digest hash method by HashType
 	SubresourceIntegrity bool
 	HashType             HashType
 }
@@ -57,6 +58,7 @@ const (
 	HTSHA512
 )
 
+// Hash returns corresponding Hash functions for checksum calculation.
 func (h HashType) Hash() hash.Hash {
 	switch h {
 	case HTSHA256:
@@ -69,6 +71,7 @@ func (h HashType) Hash() hash.Hash {
 	return md5.New()
 }
 
+// Strings return HashType's string name.
 func (h HashType) String() string {
 	switch h {
 	case HTSHA256:
@@ -118,6 +121,8 @@ func defaultMatcher(path string, info os.FileInfo) bool {
 	return false
 }
 
+// SetConfig updates Manager config.
+// Under the hood, it creates a new manager and reprocesses all the monitored directories.
 func (m *Manager) SetConfig(cfg Config) error {
 	nm, err := NewManager(cfg, m.paths...)
 	if err != nil {
@@ -126,25 +131,6 @@ func (m *Manager) SetConfig(cfg Config) error {
 	*m = *nm
 	return nil
 }
-
-// func (m *Manager) SetFingerprint(use bool) error {
-// 	nm, _ := NewManager()
-// 	nm.fingerprint = use
-// 	nm.urlPrefix = m.urlPrefix
-// 	nm.hostname = m.hostname
-// 	nm.Matcher = m.Matcher
-// 	for _, p := range m.paths {
-// 		if err := nm.Add(p); err != nil {
-// 			return err
-// 		}
-// 	}
-
-// 	*m = *nm
-// 	return nil
-// }
-
-// func (m *Manager) SetURLPrefix(prefix string) { m.urlPrefix = strings.Trim(prefix, "/") }
-// func (m *Manager) SetHostname(name string)    { m.SetHostname(name) }
 
 // Add includes path in Manager serving scope. It also copys and fingerprints
 // assets into a subdirectory named "assettube". Everytime it's called it
@@ -249,6 +235,7 @@ func (m *Manager) Add(root string) error {
 	return nil
 }
 
+// ServeHTTP returns the fiel content based on url, stripped of URLPrefix.
 func (m *Manager) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	path := r.URL.Path
 	if m.urlPrefix != "" {
@@ -258,6 +245,8 @@ func (m *Manager) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	http.ServeFile(w, r, m.fpPathsMap[path])
 }
 
+// AssetPath returns the fingerprinted filename, with Hostname and URLPrefix if configured.
+// It's mostly used as a template function for package html/template or text/template.
 func (m *Manager) AssetPath(p string) string {
 	paths := make([]string, 0, 3)
 	if m.hostname != "" {
@@ -274,6 +263,8 @@ func (m *Manager) AssetPath(p string) string {
 	return "/" + strings.Join(paths, "/")
 }
 
+// Integrity returns the SRI hash of corresponding file.
+// You could specify which digest hash to use by Config.HashType.
 func (m *Manager) Integrity(p string) string {
 	if m.integritiesMap[p] == "" {
 		return ""
