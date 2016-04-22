@@ -4,7 +4,7 @@ AssetTube is a tool fingerprints and serves asset files automatically, in runtim
 
 ## How it works
 
-AssetTube will copy your asset files into a subdirectory named `assettube` and fingerprint it, in runtime. Every time the server is restarted, it will remove previously generated files.
+AssetTube copys your asset files into a subdirectory named `assettube` and fingerprints them, in runtime. Every time the server is restarted, it will remove previously generated files and generates new files.
 
 You could check out the [example](https://github.com/theplant/assettube/tree/master/example) to have better idea of how it works.
 

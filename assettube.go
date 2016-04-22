@@ -1,6 +1,10 @@
 // package assettube fingerprints and servers your assets processed by
 // webpack/gulp/other-tools from your Go application.
 //
+// AssetTube copys your asset files into a subdirectory named `assettube` and
+// fingerprints them, in runtime. Every time the server is restarted, it will
+// remove previously generated files and generates new files.
+//
 package assettube
 
 import (
@@ -19,12 +23,28 @@ import (
 
 var DefaultManager, _ = NewManager(Config{})
 
-func Add(root string) error                            { return DefaultManager.Add(root) }
-func ServeHTTP(w http.ResponseWriter, r *http.Request) { DefaultManager.ServeHTTP(w, r) }
-func AssetPath(p string) string                        { return DefaultManager.AssetPath(p) }
-func Integrity(p string) string                        { return DefaultManager.Integrity(p) }
-func SetConfig(cfg Config) error                       { return DefaultManager.SetConfig(cfg) }
+// Add includes path in Manager serving scope. It also copies and fingerprints
+// assets into a subdirectory named "assettube". Every time it's called it
+// removes the subdirectory and create a new one, then copy all the matched
+// files into the new directory.
+func Add(root string) error { return DefaultManager.Add(root) }
 
+// ServeHTTP returns the file content based on URL, stripped of URLPrefix.
+func ServeHTTP(w http.ResponseWriter, r *http.Request) { DefaultManager.ServeHTTP(w, r) }
+
+// AssetPath returns the fingerprinted filename, with Hostname and URLPrefix if configured.
+// It's mostly used as a template function for package html/template or text/template.
+func AssetPath(p string) string { return DefaultManager.AssetPath(p) }
+
+// Integrity returns the SRI hash of corresponding file.
+// You could specify which digest hash to use by Config.HashType.
+func Integrity(p string) string { return DefaultManager.Integrity(p) }
+
+// SetConfig updates Manager configurations.
+// Under the hood, it creates a new manager and reprocesses all the monitored directories.
+func SetConfig(cfg Config) error { return DefaultManager.SetConfig(cfg) }
+
+// Manager processes and serves the file content.
 type Manager struct {
 	paths       []string
 	pathsMap    map[string]string
@@ -38,26 +58,29 @@ type Manager struct {
 	integrity      bool
 	integritiesMap map[string]string
 
-	Matcher func(path string, info os.FileInfo) bool
+	matcher func(path string, info os.FileInfo) bool
 }
 
 type Config struct {
-	Fingerprint bool
-	URLPrefix   string
-	Hostname    string
-	Matcher     func(path string, info os.FileInfo) bool
+	Fingerprint bool   // Fingerprint option. False by default, so you could only enable it for production server.
+	URLPrefix   string // URLPrefix prepends url in the fingerprinted filename returned from Manager.
+	Hostname    string // Hostname specifies CDN hostname. Empty by default.
 
-	// Enable SubresourceIntegrity support and specify digest hash method by HashType
+	// Matcher decides what files AssetTube Manager should fingerprint and serve.
+	// The default matcher only handle JS and CSS files (i.e.: *.js, *.css).
+	Matcher func(path string, info os.FileInfo) bool
+
+	// Enable SubresourceIntegrity support and specify digest hash method by HashType.
 	SubresourceIntegrity bool
-	HashType             HashType
+	HashType             HashType // Default HashType is SHA-384.
 }
 
+// HashType is the hash
 type HashType int
 
 const (
-	HTMD5 HashType = iota
+	HTSHA384 HashType = iota
 	HTSHA256
-	HTSHA384
 	HTSHA512
 )
 
@@ -87,23 +110,22 @@ func (h HashType) String() string {
 	return "md5"
 }
 
+// NewManager returns a AssetTube Manager.
 func NewManager(cfg Config, paths ...string) (*Manager, error) {
 	var m Manager
 	m.pathsMap = map[string]string{}
 	m.fpPathsMap = map[string]string{}
 	m.integritiesMap = map[string]string{}
 	m.fingerprint = cfg.Fingerprint
-	m.urlPrefix = cfg.URLPrefix
+	m.urlPrefix = strings.Trim(cfg.URLPrefix, "/")
 	m.hostname = cfg.Hostname
 	m.integrity = cfg.SubresourceIntegrity
 	m.hash = cfg.HashType
-	if m.integrity && m.hash == HTMD5 {
-		m.hash = HTSHA384
-	}
+
 	if cfg.Matcher != nil {
-		m.Matcher = cfg.Matcher
+		m.matcher = cfg.Matcher
 	} else {
-		m.Matcher = defaultMatcher
+		m.matcher = defaultMatcher
 	}
 
 	for _, p := range paths {
@@ -124,7 +146,7 @@ func defaultMatcher(path string, info os.FileInfo) bool {
 	return false
 }
 
-// SetConfig updates Manager config.
+// SetConfig updates Manager configurations.
 // Under the hood, it creates a new manager and reprocesses all the monitored directories.
 func (m *Manager) SetConfig(cfg Config) error {
 	nm, err := NewManager(cfg, m.paths...)
@@ -135,8 +157,8 @@ func (m *Manager) SetConfig(cfg Config) error {
 	return nil
 }
 
-// Add includes path in Manager serving scope. It also copys and fingerprints
-// assets into a subdirectory named "assettube". Everytime it's called it
+// Add includes path in Manager serving scope. It also copies and fingerprints
+// assets into a subdirectory named "assettube". Every time it's called it
 // removes the subdirectory and create a new one, then copy all the matched
 // files into the new directory.
 func (m *Manager) Add(root string) error {
@@ -194,7 +216,7 @@ func (m *Manager) Add(root string) error {
 			return nil
 		}
 
-		if !m.Matcher(path, info) {
+		if !m.matcher(path, info) {
 			return nil
 		}
 
@@ -239,7 +261,7 @@ func (m *Manager) Add(root string) error {
 	return nil
 }
 
-// ServeHTTP returns the fiel content based on url, stripped of URLPrefix.
+// ServeHTTP returns the file content based on URL, stripped of URLPrefix.
 func (m *Manager) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	path := r.URL.Path
 	if m.urlPrefix != "" {
