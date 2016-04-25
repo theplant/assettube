@@ -2,6 +2,7 @@ package assettube
 
 import (
 	"bytes"
+	"html/template"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -79,5 +80,35 @@ func TestHostname(t *testing.T) {
 	m, _ := NewManager(Config{Hostname: "https://cdn.com"}, "test")
 	if got, want := m.AssetPath("js/file.js"), "https://cdn.com/js/file.js"; got != want {
 		t.Errorf("m.AssetPath(js/file.js) = %s; want %s", got, want)
+	}
+}
+
+func TestScriptAndLink(t *testing.T) {
+	m, err := NewManager(Config{Fingerprint: true}, "test")
+	if err != nil {
+		t.Error(err)
+	}
+	if got, want := m.Script("js/file.js"), template.HTML(`<script src="/js/file.bf5a6a7119046d97ee509d017080c6aa.js" type="text/javascript"></script>`); got != want {
+		t.Errorf("m.Script(js/file.js) = %s; want %s", got, want)
+	}
+	if got, want := m.Script("js/file.js", "attr", "val<tag>"), template.HTML(`<script src="/js/file.bf5a6a7119046d97ee509d017080c6aa.js" type="text/javascript" attr="val&lt;tag&gt;"></script>`); got != want {
+		t.Errorf("m.Script(js/file.js) = %s; want %s", got, want)
+	}
+	if got, want := m.Link("css/file.css"), template.HTML(`<link href="/css/file.0bc77612dba2d5253636e9f0b0d3e6cc.css" rel="stylesheet" type="text/css"></link>`); got != want {
+		t.Errorf("m.Link(css/file.css) = %s; want %s", got, want)
+	}
+
+	if err := m.SetConfig(Config{Fingerprint: true, SubresourceIntegrity: true}); err != nil {
+		t.Error(err)
+	}
+	if got, want := m.Script("js/file.js", "attr", "val<tag>"), template.HTML(`<script src="/js/file.bf5a6a7119046d97ee509d017080c6aa.js" type="text/javascript" attr="val&lt;tag&gt;" integrity="sha384-ikdSg6BDd7ZQH0wpe7EtsWSf4DDnkWmgulB70NrXja4doy1lTsql2ajoHay1xkiu"></script>`); got != want {
+		t.Errorf("m.Script(js/file.js) = %s; want %s", got, want)
+	}
+
+	if err := m.SetConfig(Config{SubresourceIntegrity: true}); err != nil {
+		t.Error(err)
+	}
+	if got, want := m.Script("js/file.js", "attr", "val<tag>"), template.HTML(`<script src="/js/file.js" type="text/javascript" attr="val&lt;tag&gt;" integrity=""></script>`); got != want {
+		t.Errorf("m.Script(js/file.js) = %s; want %s", got, want)
 	}
 }

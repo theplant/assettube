@@ -14,6 +14,8 @@ import (
 	"encoding/base64"
 	"fmt"
 	"hash"
+	"html"
+	"html/template"
 	"io"
 	"net/http"
 	"os"
@@ -45,6 +47,10 @@ func Integrity(p string) string { return DefaultManager.Integrity(p) }
 // Under the hood, it creates a new manager and reprocesses all the monitored directories.
 func SetConfig(cfg Config) error { return DefaultManager.SetConfig(cfg) }
 
+func Script(p string, attrs ...string) template.HTML { return DefaultManager.Script(p, attrs...) }
+
+func Link(p string, attrs ...string) template.HTML { return DefaultManager.Link(p, attrs...) }
+
 // Manager processes and serves the file content.
 type Manager struct {
 	paths       []string
@@ -72,6 +78,7 @@ type Config struct {
 	Matcher func(path string, info os.FileInfo) bool
 
 	// Enable SubresourceIntegrity support and specify digest hash method by HashType.
+	// Note: SubresourceIntegrity only works when Fingerprint is enabled.
 	SubresourceIntegrity bool
 	HashType             HashType // Default HashType is HTSHA384(SHA-384).
 }
@@ -148,7 +155,7 @@ func defaultMatcher(path string, info os.FileInfo) bool {
 	return false
 }
 
-// SetConfig updates Manager configurations.
+// SetConfig updates Manager configurations. It overrides all configs with the new ones.
 // Under the hood, it creates a new manager and reprocesses all the monitored directories.
 func (m *Manager) SetConfig(cfg Config) error {
 	nm, err := NewManager(cfg, m.paths...)
@@ -299,4 +306,29 @@ func (m *Manager) Integrity(p string) string {
 		return ""
 	}
 	return fmt.Sprintf("%s-%s", m.hash, m.integritiesMap[p])
+}
+
+func (m *Manager) Script(p string, attrs ...string) template.HTML {
+	if m.integrity {
+		attrs = append(attrs, "integrity", m.Integrity(p))
+	}
+	return template.HTML(fmt.Sprintf(`<script src="%s" type="text/javascript"%s></script>`, m.AssetPath(p), stringifyAttrs(attrs)))
+}
+
+func (m *Manager) Link(p string, attrs ...string) template.HTML {
+	if m.integrity {
+		attrs = append(attrs, "integrity", m.Integrity(p))
+	}
+	return template.HTML(fmt.Sprintf(`<link href="%s" rel="stylesheet" type="text/css"%s></link>`, m.AssetPath(p), stringifyAttrs(attrs)))
+}
+
+func stringifyAttrs(attrs []string) string {
+	var pairs []string
+	for i := 0; i < len(attrs); i += 2 {
+		pairs = append(pairs, fmt.Sprintf(`%s="%s"`, html.EscapeString(attrs[i]), html.EscapeString(attrs[i+1])))
+	}
+	if len(pairs) > 0 {
+		pairs = append([]string{""}, pairs...)
+	}
+	return strings.Join(pairs, " ")
 }
