@@ -21,6 +21,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 )
 
 var DefaultManager, _ = NewManager(Config{})
@@ -66,6 +67,8 @@ type Manager struct {
 	integritiesMap map[string]string
 
 	matcher func(path string, info os.FileInfo) bool
+
+	logger io.Writer
 }
 
 type Config struct {
@@ -81,6 +84,8 @@ type Config struct {
 	// Note: SubresourceIntegrity only works when Fingerprint is enabled.
 	SubresourceIntegrity bool
 	HashType             HashType // Default HashType is HTSHA384(SHA-384).
+
+	Logger io.Writer
 }
 
 // HashType represents the hash function used in Subresource Integrity.
@@ -119,7 +124,7 @@ func (h HashType) String() string {
 	return "md5"
 }
 
-// NewManager returns a AssetTube Manager.
+// NewManager returns an AssetTube Manager.
 func NewManager(cfg Config, paths ...string) (*Manager, error) {
 	var m Manager
 	m.pathsMap = map[string]string{}
@@ -134,7 +139,12 @@ func NewManager(cfg Config, paths ...string) (*Manager, error) {
 	if cfg.Matcher != nil {
 		m.matcher = cfg.Matcher
 	} else {
-		m.matcher = defaultMatcher
+		m.matcher = JSCSSOnly
+	}
+	if cfg.Logger != nil {
+		m.logger = cfg.Logger
+	} else {
+		m.logger = os.Stdout
 	}
 
 	for _, p := range paths {
@@ -146,7 +156,7 @@ func NewManager(cfg Config, paths ...string) (*Manager, error) {
 	return &m, nil
 }
 
-func defaultMatcher(path string, info os.FileInfo) bool {
+func JSCSSOnly(path string, info os.FileInfo) bool {
 	if matched := strings.HasSuffix(path, ".js"); matched {
 		return true
 	} else if matched := strings.HasSuffix(path, ".css"); matched {
@@ -171,6 +181,9 @@ func (m *Manager) SetConfig(cfg Config) error {
 // removes the subdirectory and create a new one, then copy all the matched
 // files into the new directory.
 func (m *Manager) Add(root string) error {
+	defer func(start time.Time) {
+		fmt.Fprintf(m.logger, "[AssetTube] %s Add %s took %s\n", time.Now(), root, time.Now().Sub(start))
+	}(time.Now())
 	m.paths = append(m.paths, root)
 
 	root = filepath.Clean(root)
@@ -272,6 +285,10 @@ func (m *Manager) Add(root string) error {
 
 // ServeHTTP returns the file content based on URL, stripped of URLPrefix.
 func (m *Manager) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	defer func(start time.Time) {
+		fmt.Fprintf(m.logger, "[AssetTube] %s Serve %s took %s\n", time.Now(), r.URL, time.Now().Sub(start))
+	}(time.Now())
+
 	path := r.URL.Path
 	if m.urlPrefix != "" {
 		path = strings.TrimPrefix(path, "/"+m.urlPrefix)
