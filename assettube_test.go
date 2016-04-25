@@ -10,7 +10,7 @@ import (
 	_ "github.com/bom-d-van/sidekick"
 )
 
-func TestManager(t *testing.T) {
+func TestNewAndAssetPath(t *testing.T) {
 	for _, c := range []struct {
 		cname       int
 		path        string
@@ -80,6 +80,22 @@ func TestHostname(t *testing.T) {
 	m, _ := NewManager(Config{Hostname: "https://cdn.com"}, "test")
 	if got, want := m.AssetPath("js/file.js"), "https://cdn.com/js/file.js"; got != want {
 		t.Errorf("m.AssetPath(js/file.js) = %s; want %s", got, want)
+	}
+}
+
+func TestIntegrity(t *testing.T) {
+	m, err := NewManager(Config{SubresourceIntegrity: true, Fingerprint: true}, "test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, want := m.Integrity("js/file.js"), "sha384-ikdSg6BDd7ZQH0wpe7EtsWSf4DDnkWmgulB70NrXja4doy1lTsql2ajoHay1xkiu"; got != want {
+		t.Errorf(`m.Integrity("js/file.js") = %s; want %s`, got, want)
+	}
+	if err := m.SetConfig(Config{SubresourceIntegrity: true, Fingerprint: true, HashType: HTSHA512}); err != nil {
+		t.Fatal(err)
+	}
+	if got, want := m.Integrity("js/file.js"), "sha512-ju5jHaaN+e9x7kaWXjRO8fgoYCzKsw7lAzY3uzpjSAF3FJsKoIYAhvZ6Plxp5hgFyu0ho7a7U6mAWxcvKrC+Dw"; got != want {
+		t.Errorf(`m.Integrity("js/file.js") = %s; want %s`, got, want)
 	}
 }
 
