@@ -225,6 +225,10 @@ func (m *Manager) Add(root string) error {
 			return nil
 		}
 
+		if !m.matcher(path, info) {
+			return nil
+		}
+
 		src, err := os.Open(path)
 		if err != nil {
 			return err
@@ -235,10 +239,6 @@ func (m *Manager) Add(root string) error {
 		if !m.fingerprint {
 			m.pathsMap[name] = name
 			m.fpPathsMap[name] = filepath.Join(cacheDir, name)
-			return nil
-		}
-
-		if !m.matcher(path, info) {
 			return nil
 		}
 
