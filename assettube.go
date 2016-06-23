@@ -12,6 +12,7 @@ import (
 	"crypto/sha256"
 	"crypto/sha512"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"hash"
 	"html"
@@ -348,4 +349,29 @@ func stringifyAttrs(attrs []string) string {
 		pairs = append([]string{""}, pairs...)
 	}
 	return strings.Join(pairs, " ")
+}
+
+func NewManagerManifest(path string) (*Manager, error) {
+	file, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	var m Manager
+	var data struct {
+		URLPrefix string
+		Hostname  string
+		Paths     map[string]string
+	}
+	if err := json.NewDecoder(file).Decode(&data); err != nil {
+		return nil, err
+	}
+	m.hostname = data.Hostname
+	m.urlPrefix = data.URLPrefix
+	m.pathsMap = data.Paths
+	m.fpPathsMap = map[string]string{}
+	m.logger = os.Stdout
+	for _, fp := range m.pathsMap {
+		m.fpPathsMap[fp] = fp
+	}
+	return &m, nil
 }

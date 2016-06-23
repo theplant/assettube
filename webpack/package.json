@@ -1,0 +1,23 @@
+{
+  "name": "assettube",
+  "version": "1.0.0",
+  "description": "Asset files connector.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+ssh://git@github.com/theplant/assettube.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/theplant/assettube/issues"
+  },
+  "homepage": "https://github.com/theplant/assettube#readme",
+  "dependencies": {
+    "lodash": "^4.13.1",
+    "path": "^0.12.7"
+  }
+}

@@ -3,6 +3,7 @@ package assettube
 import (
 	"bytes"
 	"html/template"
+	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -20,7 +21,7 @@ func TestNewAndAssetPath(t *testing.T) {
 	}{
 		{
 			cname:       1,
-			path:        "/Users/bom_d_van/Code/go/workspace/src/github.com/theplant/assettube/test",
+			path:        "/Users/bom_d_van/Code/go/workspace/src/github.com/theplant/assettube/testdata",
 			fingerprint: true,
 			pathMap: [][2]string{
 				{"css/file.css", "/css/file.0bc77612dba2d5253636e9f0b0d3e6cc.css"},
@@ -30,7 +31,7 @@ func TestNewAndAssetPath(t *testing.T) {
 		},
 		{
 			cname:       2,
-			path:        "test",
+			path:        "testdata",
 			fingerprint: true,
 			pathMap: [][2]string{
 				{"css/file.css", "/css/file.0bc77612dba2d5253636e9f0b0d3e6cc.css"},
@@ -40,7 +41,7 @@ func TestNewAndAssetPath(t *testing.T) {
 		},
 		{
 			cname:       3,
-			path:        "test",
+			path:        "testdata",
 			fingerprint: false,
 			pathMap: [][2]string{
 				{"css/file.css", "/css/file.css"},
@@ -77,14 +78,14 @@ func TestNewAndAssetPath(t *testing.T) {
 }
 
 func TestHostname(t *testing.T) {
-	m, _ := NewManager(Config{Hostname: "https://cdn.com"}, "test")
+	m, _ := NewManager(Config{Hostname: "https://cdn.com"}, "testdata")
 	if got, want := m.AssetPath("js/file.js"), "https://cdn.com/js/file.js"; got != want {
 		t.Errorf("m.AssetPath(js/file.js) = %s; want %s", got, want)
 	}
 }
 
 func TestIntegrity(t *testing.T) {
-	m, err := NewManager(Config{SubresourceIntegrity: true, Fingerprint: true}, "test")
+	m, err := NewManager(Config{SubresourceIntegrity: true, Fingerprint: true}, "testdata")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -100,7 +101,7 @@ func TestIntegrity(t *testing.T) {
 }
 
 func TestScriptAndLink(t *testing.T) {
-	m, err := NewManager(Config{Fingerprint: true}, "test")
+	m, err := NewManager(Config{Fingerprint: true}, "testdata")
 	if err != nil {
 		t.Error(err)
 	}
@@ -126,5 +127,41 @@ func TestScriptAndLink(t *testing.T) {
 	}
 	if got, want := m.Script("js/file.js", "attr", "val<tag>"), template.HTML(`<script src="/js/file.js" type="text/javascript" attr="val&lt;tag&gt;" integrity=""></script>`); got != want {
 		t.Errorf("m.Script(js/file.js) = %s; want %s", got, want)
+	}
+}
+
+func TestManifestManager(t *testing.T) {
+	file, err := ioutil.TempFile("", "assettube")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := file.WriteString(`{
+	"paths": {
+		"testdata/webpack/file.css": "testdata/webpack/file.0bc77612dba2d5253636e9f0b0d3e6cc.css",
+		"testdata/webpack/file.js": "testdata/webpack/file.bf5a6a7119046d97ee509d017080c6aa.js"
+	},
+	"hostname": "http://test.com",
+	"urlPrefix": "assets"
+}`); err != nil {
+		t.Error(err)
+	}
+	m, err := NewManagerManifest(file.Name())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, want := m.AssetPath("testdata/webpack/file.js"), "http://test.com/assets/testdata/webpack/file.bf5a6a7119046d97ee509d017080c6aa.js"; got != want {
+		t.Errorf("m.AssetPath('testdata/webpack/file.js') = %s; want %s", got, want)
+	}
+
+	req, err := http.NewRequest("GET", "http://test.com/assets/testdata/webpack/file.bf5a6a7119046d97ee509d017080c6aa.js", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	w := httptest.NewRecorder()
+	var body bytes.Buffer
+	w.Body = &body
+	m.ServeHTTP(w, req)
+	if got, want := body.String(), "var code = 'test';\n"; got != want {
+		t.Errorf("body.String() = %s; want %s", got, want)
 	}
 }
