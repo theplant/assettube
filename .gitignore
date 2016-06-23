@@ -27,3 +27,4 @@ test/assettube
 
 */node_modules/*
 webpack/testapp/output/*
+testapp/*
