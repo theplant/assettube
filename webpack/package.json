@@ -1,6 +1,6 @@
 {
   "name": "assettube",
-  "version": "1.0.1",
+  "version": "1.0.3",
   "description": "Asset files connector.",
   "main": "index.js",
   "scripts": {

@@ -2,7 +2,7 @@
 
 [![GoDoc](https://godoc.org/github.com/golang/gddo?status.svg)](http://godoc.org/github.com/theplant/assettube)
 
-AssetTube is a tool fingerprints and serves asset files automatically, in runtime. It's built to connect your webpack-processed assets to Go application.
+AssetTube is a tool fingerprints and serves asset files automatically. It's built to connect your webpack-processed assets to Go application.
 
 ## How it works
 
@@ -10,7 +10,7 @@ AssetTube copys your asset files into a subdirectory named `assettube` and finge
 
 You could check out the [example](https://github.com/theplant/assettube/tree/master/example) to have better idea of how it works.
 
-## Usage example
+## Runtime Usage example
 
 ```go
 package main
@@ -58,4 +58,54 @@ func main() {
 	http.HandleFunc("/assets/", assettube.ServeHTTP) // Note the trailing "/", whihc is necessary
 	http.ListenAndServe(":8080", nil)
 }
+```
+
+## Webpack Usage
+
+Install assettube npm package:
+
+```shell
+npm install assettube
+```
+
+In your webpack config file:
+
+```js
+var path = require('path');
+var webpack = require('webpack');
+var AssetTube = require('../index');
+
+var config = {
+	entry: { app: './index.js'},
+	output: {
+		path: path.join(__dirname, './output'),
+		filename: '[name].[chunkhash].js',
+		publicPath: './public'
+	},
+	plugins: [
+		new AssetTube({
+			// configurations
+			// hostname: '',
+			// urlPrefix: '',
+			// basePath: '',
+			// fileName: 'assettube.json',
+			// stripSrc: null,
+			// transformExtensions: /^(gz|map)$/i,
+			// cache: null
+		})
+	]
+};
+
+module.exports = config;
+```
+
+Go server:
+
+```go
+m, err := NewManagerManifest("path/to/assettube.json")
+if err != nil {
+	t.Fatal(err)
+}
+
+// the reset same as runtime mode
 ```

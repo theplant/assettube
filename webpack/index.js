@@ -1,19 +1,19 @@
 var path = require('path');
 var _ = require('lodash');
 
-function ManifestPlugin(opts) {
+function AssetTube(opts) {
 	this.opts = _.assign({
 		hostname: '',
 		urlPrefix: '',
 		basePath: '',
-		fileName: 'manifest.json',
+		fileName: 'assettube.json',
 		stripSrc: null,
 		transformExtensions: /^(gz|map)$/i,
 		cache: null
 	}, opts || {});
 }
 
-ManifestPlugin.prototype.getFileType = function(str) {
+AssetTube.prototype.getFileType = function(str) {
 	str = str.replace(/\?.*/, '');
 	var split = str.split('.');
 	var ext = split.pop();
@@ -23,7 +23,7 @@ ManifestPlugin.prototype.getFileType = function(str) {
 	return ext;
 };
 
-ManifestPlugin.prototype.apply = function(compiler) {
+AssetTube.prototype.apply = function(compiler) {
 	var outputName = this.opts.fileName;
 	var cache = this.opts.cache || {};
 	var moduleAssets = {};
@@ -91,4 +91,4 @@ ManifestPlugin.prototype.apply = function(compiler) {
 	}.bind(this));
 };
 
-module.exports = ManifestPlugin;
+module.exports = AssetTube;

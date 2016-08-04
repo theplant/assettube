@@ -1,6 +1,6 @@
 var path = require('path');
 var webpack = require('webpack');
-var ManifestPlugin = require('../index');
+var AssetTube = require('../index');
 
 var config = {
     entry: {
@@ -27,7 +27,7 @@ var config = {
         new webpack.ProvidePlugin({
             'fetch': 'imports?this=>global!exports?global.fetch!whatwg-fetch'
         }),
-        new ManifestPlugin({
+        new AssetTube({
         	// basePath: 'output/'
         })
     ]
