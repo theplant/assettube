@@ -28,3 +28,5 @@ test/assettube
 */node_modules/*
 webpack/testapp/output/*
 testapp/*
+
+.DS_Store
