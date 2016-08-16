@@ -73,7 +73,7 @@ In your webpack config file:
 ```js
 var path = require('path');
 var webpack = require('webpack');
-var AssetTube = require('../index');
+var AssetTube = require('assettube');
 
 var config = {
 	entry: { app: './index.js'},
