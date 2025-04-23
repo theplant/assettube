@@ -4,7 +4,6 @@
 // AssetTube copys your asset files into a subdirectory named `assettube` and
 // fingerprints them, in runtime. Every time the server is restarted, it will
 // remove previously generated files and generates new files.
-//
 package assettube
 
 import (
@@ -295,7 +294,19 @@ func (m *Manager) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		path = strings.TrimPrefix(path, "/"+m.urlPrefix)
 	}
 	path = strings.TrimPrefix(path, "/")
-	http.ServeFile(w, r, m.fpPathsMap[path])
+
+	if path == "" {
+		http.NotFound(w, r)
+		return
+	}
+
+	filePath, exists := m.fpPathsMap[path]
+	if !exists {
+		http.NotFound(w, r)
+		return
+	}
+
+	http.ServeFile(w, r, filePath)
 }
 
 // AssetPath returns the fingerprinted filename, with Hostname and URLPrefix if configured.
